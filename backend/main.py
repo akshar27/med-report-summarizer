@@ -19,8 +19,7 @@ if not CARDINAL_API_KEY:
 # Allow frontend to call backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # ✅ any vercel.app subdomain
-    allow_origins=["http://localhost:3000"],       # keep localhost too
+    allow_origins=["*"],   # ⚠️ allows everything
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
