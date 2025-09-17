@@ -6,6 +6,7 @@ export default function Home() {
   const [patientView, setPatientView] = useState("");
   const [doctorView, setDoctorView] = useState(null);
   const [error, setError] = useState("");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const handleUpload = async () => {
     if (!file) {
@@ -14,9 +15,9 @@ export default function Home() {
     }
     const formData = new FormData();
     formData.append("file", file);
-
+    
     try {
-      const res = await fetch("http://localhost:8000/upload", {
+      const res = await fetch(`${API_URL}/upload`, {
         method: "POST",
         body: formData,
       });
@@ -96,7 +97,8 @@ export default function Home() {
       )}
 
       {/* Doctor View */}
-      {doctorView && doctorView.response && (
+      {/* Doctor View */}
+{doctorView && doctorView.length > 0 && (
   <div className="mt-8">
     <h2 className="text-2xl font-semibold mb-4">🩺 Doctor View</h2>
     <div className="overflow-x-auto">
@@ -110,47 +112,30 @@ export default function Home() {
           </tr>
         </thead>
         <tbody>
-          {(() => {
-            try {
-              // Extract actual labs from the response JSON string
-              const match = doctorView.response.match(/\{.*\}/s);
-              if (!match) return null;
-              const parsed = JSON.parse(match[0]);
-
-              return parsed.labs.map((lab, i) => (
-                <tr key={i}>
-                  <td className="border px-4 py-2 font-medium">{lab.test}</td>
-                  <td className="border px-4 py-2">{lab.value}</td>
-                  <td className="border px-4 py-2">{lab.unit}</td>
-                  <td
-                    className={`border px-4 py-2 font-semibold ${
-                      lab.status === "Abnormal"
-                        ? "text-red-600"
-                        : lab.status === "Normal"
-                        ? "text-green-600"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    {lab.status || "N/A"}
-                  </td>
-                </tr>
-              ));
-            } catch (e) {
-              console.error("Parsing error:", e);
-              return (
-                <tr>
-                  <td colSpan="4" className="text-center p-4 text-red-500">
-                    Could not parse lab results.
-                  </td>
-                </tr>
-              );
-            }
-          })()}
+          {doctorView.map((lab, i) => (
+            <tr key={i}>
+              <td className="border px-4 py-2 font-medium">{lab.test}</td>
+              <td className="border px-4 py-2">{lab.value}</td>
+              <td className="border px-4 py-2">{lab.unit}</td>
+              <td
+                className={`border px-4 py-2 font-semibold ${
+                  lab.status === "Abnormal"
+                    ? "text-red-600"
+                    : lab.status === "Normal"
+                    ? "text-green-600"
+                    : "text-gray-500"
+                }`}
+              >
+                {lab.status || "N/A"}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
   </div>
 )}
+
     </main>
   );
 }

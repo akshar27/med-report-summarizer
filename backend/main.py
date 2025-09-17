@@ -5,22 +5,29 @@ import uvicorn
 import os
 import json
 import re
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
+
+# Load API key from .env
+CARDINAL_API_KEY = os.getenv("CARDINAL_API_KEY")
+if not CARDINAL_API_KEY:
+    raise RuntimeError("CARDINAL_API_KEY is not set. Check your .env file or Render environment variables.")
 
 # Allow frontend to call backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://med-report-summarizer.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# API key (best practice: store in .env, not hardcoded)
-CARDINAL_API_KEY = os.getenv("CARDINAL_API_KEY")
-
-# Reference ranges for lab values
 reference_ranges = {
     "Glucose": (70, 110),
     "Cholesterol": (100, 200),
@@ -36,7 +43,6 @@ async def upload_report(file: UploadFile = File(...)):
     url = "https://api.trycardinal.ai/extract"
     headers = {"x-api-key": CARDINAL_API_KEY}
 
-    # Form data for Cardinal
     form_data = {
         "schema": """
         {
@@ -51,22 +57,17 @@ async def upload_report(file: UploadFile = File(...)):
         "customContext": "Extract patient info and lab test values (Glucose, Cholesterol, Hemoglobin) into JSON format."
     }
 
-    files = {
-        "file": (file.filename, await file.read(), file.content_type)
-    }
+    files = {"file": (file.filename, await file.read(), file.content_type)}
 
-    response = requests.post(url, headers=headers, data=form_data, files=files)
-
+    response = requests.post(url, headers=headers, data=form_data, files=files, timeout=60)
     if response.status_code != 200:
         return {"error": response.text}
 
     data = response.json()
-    print("Cardinal raw response:", data)  # Debug log
+    print("Cardinal raw response:", data)
 
-    # Try to parse embedded JSON inside "response"
     labs_data = []
     if "response" in data:
-        # Remove ```json ... ``` wrappers if present
         match = re.search(r"\{.*\}", data["response"], re.DOTALL)
         if match:
             try:
@@ -75,7 +76,6 @@ async def upload_report(file: UploadFile = File(...)):
             except Exception as e:
                 print("JSON parsing failed:", e)
 
-    # Add normal/abnormal flags
     for lab in labs_data:
         low, high = reference_ranges.get(lab["test"], (None, None))
         if low and (lab["value"] < low or lab["value"] > high):
@@ -83,7 +83,6 @@ async def upload_report(file: UploadFile = File(...)):
         else:
             lab["status"] = "Normal"
 
-    # Build patient-friendly summary
     patient_summary = " | ".join(
         f"⚠️ {lab['test']} {lab['value']}{lab['unit']} abnormal"
         if lab["status"] == "Abnormal"
@@ -92,10 +91,10 @@ async def upload_report(file: UploadFile = File(...)):
     ) if labs_data else "No lab results found in this file."
 
     return {
-        "doctor_view": data,
+        "doctor_view_raw": data,
+        "doctor_view_clean": labs_data,
         "patient_view": patient_summary,
     }
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
