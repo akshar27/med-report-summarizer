@@ -27,6 +27,9 @@ reference_ranges = {
     "Hemoglobin": (12, 16),
 }
 
+@app.get("/")
+def root():
+    return {"message": "API is live"}
 
 @app.post("/upload")
 async def upload_report(file: UploadFile = File(...)):
