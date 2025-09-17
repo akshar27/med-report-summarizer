@@ -7,19 +7,21 @@ import json
 import re
 from dotenv import load_dotenv
 
+# Load .env file locally
 load_dotenv()
 
 app = FastAPI()
 
-# Load API key from .env
+# Load API key
 CARDINAL_API_KEY = os.getenv("CARDINAL_API_KEY")
 if not CARDINAL_API_KEY:
-    raise RuntimeError("CARDINAL_API_KEY is not set. Check your .env file or Render environment variables.")
+    raise RuntimeError("CARDINAL_API_KEY is not set. Add it in .env or Render environment variables.")
 
-# Allow frontend to call backend
+# ✅ Allow localhost + any *.vercel.app (preview & prod)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # ⚠️ allows everything
+    allow_origins=["http://localhost:3000"],        # exact match for local dev
+    allow_origin_regex=r"https://.*\.vercel\.app",  # regex for all vercel.app subdomains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,6 +65,7 @@ async def upload_report(file: UploadFile = File(...)):
     data = response.json()
     print("Cardinal raw response:", data)
 
+    # Parse JSON inside response
     labs_data = []
     if "response" in data:
         match = re.search(r"\{.*\}", data["response"], re.DOTALL)
@@ -73,6 +76,7 @@ async def upload_report(file: UploadFile = File(...)):
             except Exception as e:
                 print("JSON parsing failed:", e)
 
+    # Mark abnormal values
     for lab in labs_data:
         low, high = reference_ranges.get(lab["test"], (None, None))
         if low and (lab["value"] < low or lab["value"] > high):
@@ -94,5 +98,6 @@ async def upload_report(file: UploadFile = File(...)):
     }
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))  # use Render's PORT or fallback to 8000 locally
+    # ✅ Use Render's provided PORT or fallback to 8000 locally
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
